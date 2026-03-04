@@ -1,20 +1,24 @@
 "use client";
 
+import { CSSProperties } from "react";
+
 export default function DeleteButton({
   mensaje,
   className,
+  style,
   children,
 }: {
   mensaje: string;
   className?: string;
+  style?: CSSProperties;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="submit"
       className={className}
+      style={style}
       onClick={(e) => {
-        // Si el usuario hace clic en "Cancelar", frenamos el envío del formulario
         if (!window.confirm(mensaje)) {
           e.preventDefault();
         }

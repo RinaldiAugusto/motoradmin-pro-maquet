@@ -3,7 +3,12 @@ import { revalidatePath } from "next/cache";
 import DeleteButton from "@/components/DeleteButton";
 import Link from "next/link";
 
-// Agregamos searchParams para capturar lo que el usuario escribe en la URL
+type VehiculoRelacion = {
+  patente: string;
+  marca: string;
+  modelo: string;
+} | null;
+
 export default async function Dashboard({
   searchParams,
 }: {
@@ -16,21 +21,15 @@ export default async function Dashboard({
   const { data: vehiculos } = await supabase
     .from("vehiculos")
     .select("id, patente, marca, modelo");
+
   const { data: ordenesRaw } = await supabase
     .from("ordenes")
     .select(
-      `
-    id, 
-    descripcion, 
-    costo, 
-    estado,
-    vehiculo_id,
-    vehiculos ( patente, marca, modelo )
-  `,
+      `id, descripcion, costo, estado, vehiculo_id, vehiculos ( patente, marca, modelo )`,
     )
     .order("created_at", { ascending: false });
 
-  // 2. NORMALIZACIÓN Y FILTRADO POR BÚSQUEDA
+  // 2. NORMALIZACIÓN Y FILTRADO
   const todasLasOrdenes =
     ordenesRaw
       ?.map((o) => {
@@ -39,12 +38,13 @@ export default async function Dashboard({
         if (e === "En Curso" || e === "En curso") estadoLimpio = "En Curso";
         if (e === "Finalizado" || e === "Terminado")
           estadoLimpio = "Finalizado";
-        return { ...o, estadoLimpio };
+        const v = o.vehiculos as VehiculoRelacion;
+        return { ...o, estadoLimpio, vehiculoData: v };
       })
       .filter(
         (o) =>
-          o.vehiculos?.patente.toLowerCase().includes(query.toLowerCase()) ||
-          o.vehiculos?.marca.toLowerCase().includes(query.toLowerCase()) ||
+          o.vehiculoData?.patente.toLowerCase().includes(query.toLowerCase()) ||
+          o.vehiculoData?.marca.toLowerCase().includes(query.toLowerCase()) ||
           o.descripcion.toLowerCase().includes(query.toLowerCase()),
       ) || [];
 
@@ -56,7 +56,7 @@ export default async function Dashboard({
     (o) => o.estadoLimpio === "Finalizado",
   );
 
-  // 3. MÉTRICAS (Basadas en el total, no solo en la búsqueda para no perder el norte financiero)
+  // 3. MÉTRICAS
   const metricasGlobales =
     ordenesRaw?.map((o) => ({
       ...o,
@@ -94,7 +94,8 @@ export default async function Dashboard({
     "use server";
     const id = formData.get("id");
     const estadoActual = formData.get("estado");
-    let nuevoEstado = estadoActual === "Pendiente" ? "En Curso" : "Finalizado";
+    const nuevoEstado =
+      estadoActual === "Pendiente" ? "En Curso" : "Finalizado";
     const supabase = await createClient();
     await supabase.from("ordenes").update({ estado: nuevoEstado }).eq("id", id);
     revalidatePath("/");
@@ -108,156 +109,318 @@ export default async function Dashboard({
     revalidatePath("/");
   }
 
-  const TrashIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-      />
-    </svg>
-  );
-
   return (
-    <div className="p-8 bg-gray-50 min-h-screen font-sans text-gray-950">
+    <div
+      className="p-8"
+      style={{
+        background: "#1a1f2e",
+        minHeight: "100vh",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
       <div className="mx-auto max-w-7xl">
-        {/* HEADER CON BUSCADOR */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        {/* TOPBAR */}
+        <div
+          className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6 pb-5 border-b"
+          style={{ borderColor: "#2e3650" }}
+        >
           <div>
-            <h2 className="text-3xl font-black tracking-tight">
+            <h1
+              className="text-2xl font-extrabold tracking-tight"
+              style={{ color: "#ffffff", letterSpacing: "-0.3px" }}
+            >
               Gestión Operativa
-            </h2>
-            <p className="text-gray-500 font-medium">
-              Control total de reparaciones y facturación.
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "#6b7899" }}>
+              Control total de reparaciones y facturación
             </p>
           </div>
-
-          <form className="w-full md:w-96 relative">
-            <input
-              type="text"
-              name="q"
-              defaultValue={query}
-              placeholder="Buscar por patente o marca..."
-              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-950"
-            />
-            <span className="absolute left-3 top-3.5 text-gray-400">🔍</span>
-          </form>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div
+              className="px-4 py-2 rounded-lg text-xs font-semibold border"
+              style={{
+                background: "#252b3b",
+                borderColor: "#374060",
+                color: "#a8b4cc",
+              }}
+            >
+              ▸ Panel activo
+            </div>
+            <form className="relative">
+              <input
+                type="text"
+                name="q"
+                defaultValue={query}
+                placeholder="Buscar patente, marca..."
+                className="rounded-lg text-sm outline-none transition-all"
+                style={{
+                  background: "#252b3b",
+                  border: "1px solid #374060",
+                  padding: "9px 14px 9px 36px",
+                  color: "#dde3f0",
+                  width: "240px",
+                  fontFamily: "inherit",
+                }}
+              />
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+                style={{ color: "#6b7899" }}
+              >
+                ⌕
+              </span>
+            </form>
+          </div>
         </div>
 
         {/* MÉTRICAS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-green-600">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Balance Cobrado
-            </p>
-            <p className="text-3xl font-black text-gray-950">
-              ${new Intl.NumberFormat("es-AR").format(cajaTotal)}
-            </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <div
+            className="flex items-center gap-4 p-5 rounded-xl border transition-all hover:-translate-y-0.5"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0"
+              style={{ background: "rgba(52,211,153,0.08)", color: "#34d399" }}
+            >
+              $
+            </div>
+            <div>
+              <p
+                className="text-xs font-semibold uppercase"
+                style={{
+                  color: "#6b7899",
+                  letterSpacing: "1px",
+                  fontSize: "10px",
+                }}
+              >
+                Balance Cobrado
+              </p>
+              <p
+                className="text-2xl font-extrabold tracking-tight"
+                style={{ color: "#34d399", letterSpacing: "-0.5px" }}
+              >
+                ${new Intl.NumberFormat("es-AR").format(cajaTotal)}
+              </p>
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-orange-500">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Pendiente de Cobro
-            </p>
-            <p className="text-3xl font-black text-gray-950">
-              ${new Intl.NumberFormat("es-AR").format(cuentasPorCobrar)}
-            </p>
+          <div
+            className="flex items-center gap-4 p-5 rounded-xl border transition-all hover:-translate-y-0.5"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+              style={{ background: "rgba(251,191,36,0.08)", color: "#fbbf24" }}
+            >
+              ◷
+            </div>
+            <div>
+              <p
+                className="text-xs font-semibold uppercase"
+                style={{
+                  color: "#6b7899",
+                  letterSpacing: "1px",
+                  fontSize: "10px",
+                }}
+              >
+                Pendiente de Cobro
+              </p>
+              <p
+                className="text-2xl font-extrabold tracking-tight"
+                style={{ color: "#fbbf24", letterSpacing: "-0.5px" }}
+              >
+                ${new Intl.NumberFormat("es-AR").format(cuentasPorCobrar)}
+              </p>
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-blue-600">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Vehículos en Taller
-            </p>
-            <p className="text-3xl font-black text-gray-950">
-              {pendientes.length + enCurso.length}
-            </p>
+          <div
+            className="flex items-center gap-4 p-5 rounded-xl border transition-all hover:-translate-y-0.5"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+              style={{ background: "rgba(96,165,250,0.08)", color: "#60a5fa" }}
+            >
+              ◈
+            </div>
+            <div>
+              <p
+                className="text-xs font-semibold uppercase"
+                style={{
+                  color: "#6b7899",
+                  letterSpacing: "1px",
+                  fontSize: "10px",
+                }}
+              >
+                Vehículos en Taller
+              </p>
+              <p
+                className="text-2xl font-extrabold tracking-tight"
+                style={{ color: "#60a5fa", letterSpacing: "-0.5px" }}
+              >
+                {pendientes.length + enCurso.length}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* CARGA RÁPIDA */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8">
-          <h3 className="text-xs font-black uppercase text-gray-400 mb-4">
+        {/* FORM */}
+        <div
+          className="p-5 rounded-xl border mb-5"
+          style={{ background: "#252b3b", borderColor: "#2e3650" }}
+        >
+          <p
+            className="text-xs font-bold uppercase mb-3"
+            style={{ color: "#6b7899", letterSpacing: "1.5px" }}
+          >
             Ingresar Nuevo Vehículo a Reparación
-          </h3>
+          </p>
           <form
             action={agregarOrden}
-            className="grid grid-cols-1 md:grid-cols-4 gap-4"
+            className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center"
           >
             <select
               name="vehiculo_id"
               required
-              className="rounded-xl border border-gray-300 p-3 text-gray-950 font-bold bg-gray-50 outline-none focus:border-indigo-600"
+              className="rounded-lg text-sm outline-none"
+              style={{
+                background: "#202637",
+                border: "1px solid #374060",
+                padding: "9px 13px",
+                color: "#dde3f0",
+                fontFamily: "inherit",
+              }}
             >
-              <option value="">Seleccionar auto...</option>
+              <option value="">Seleccionar vehículo...</option>
               {vehiculos?.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.patente} - {v.marca}
+                  {v.patente} – {v.marca} {v.modelo}
                 </option>
               ))}
             </select>
             <input
               name="descripcion"
               required
-              placeholder="Falla o servicio..."
-              className="md:col-span-2 rounded-xl border border-gray-300 p-3 text-gray-950 font-bold bg-gray-50 outline-none focus:border-indigo-600"
+              placeholder="Descripción de la falla o servicio..."
+              className="md:col-span-2 rounded-lg text-sm outline-none"
+              style={{
+                background: "#202637",
+                border: "1px solid #374060",
+                padding: "9px 13px",
+                color: "#dde3f0",
+                fontFamily: "inherit",
+              }}
             />
             <div className="flex gap-2">
               <input
                 type="number"
                 name="costo"
-                placeholder="$"
-                className="w-full rounded-xl border border-gray-300 p-3 text-gray-950 font-bold bg-gray-50 outline-none focus:border-indigo-600"
+                placeholder="$ Costo"
+                className="w-full rounded-lg text-sm outline-none"
+                style={{
+                  background: "#202637",
+                  border: "1px solid #374060",
+                  padding: "9px 13px",
+                  color: "#dde3f0",
+                  fontFamily: "inherit",
+                }}
               />
               <button
                 type="submit"
-                className="bg-indigo-600 text-white font-black px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg active:scale-95"
+                className="rounded-lg text-sm font-bold text-white transition-all active:scale-95 whitespace-nowrap"
+                style={{
+                  background: "#4f8ef7",
+                  padding: "9px 18px",
+                  fontFamily: "inherit",
+                }}
               >
-                INGRESAR
+                + Ingresar
               </button>
             </div>
           </form>
         </div>
 
         {/* KANBAN */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* PENDIENTES */}
-          <div className="bg-gray-200/50 p-4 rounded-3xl border border-gray-300">
-            <h3 className="text-[10px] font-black text-gray-500 uppercase mb-4 tracking-widest text-center">
-              1. Pendientes de Revisión
-            </h3>
-            <div className="space-y-4">
+          <div
+            className="rounded-xl border p-4"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="flex items-center gap-2 mb-3 pb-3 border-b"
+              style={{ borderColor: "#2e3650" }}
+            >
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase"
+                style={{
+                  background: "rgba(107,120,153,0.12)",
+                  color: "#6b7899",
+                  letterSpacing: "1px",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  style={{ background: "#6b7899" }}
+                />
+                Pendiente
+              </span>
+              <span
+                className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: "#2a3145", color: "#6b7899" }}
+              >
+                {pendientes.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
               {pendientes.map((o) => (
                 <div
                   key={o.id}
-                  className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200"
+                  className="rounded-xl p-4 border transition-all hover:-translate-y-0.5"
+                  style={{ background: "#202637", borderColor: "#2e3650" }}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-mono text-[10px] bg-gray-950 text-white px-3 py-1 rounded-full font-bold">
-                      {o.vehiculos?.patente}
+                  <div className="flex justify-between items-center mb-2">
+                    <span
+                      className="font-mono text-xs font-bold px-2.5 py-1 rounded"
+                      style={{
+                        background: "#2a3145",
+                        color: "#a8b4cc",
+                        letterSpacing: "1.5px",
+                      }}
+                    >
+                      {o.vehiculoData?.patente}
                     </span>
                     <form action={eliminarOrden}>
                       <input type="hidden" name="id" value={o.id} />
                       <DeleteButton
-                        mensaje="¿Borrar?"
-                        className="text-red-400 hover:scale-110 transition-transform"
+                        mensaje="¿Eliminar esta orden?"
+                        className="text-xs px-1.5 py-1 rounded transition-colors"
+                        style={{ color: "#6b7899" }}
                       >
-                        <TrashIcon />
+                        ✕
                       </DeleteButton>
                     </form>
                   </div>
-                  <h4 className="font-black text-gray-950 text-lg leading-tight">
-                    {o.vehiculos?.marca} {o.vehiculos?.modelo}
-                  </h4>
-                  <p className="text-xs text-gray-600 font-bold mt-2 mb-4 leading-relaxed">
+                  <Link
+                    href={`/ordenes/${o.id}`}
+                    className="font-bold text-sm mb-1 block hover:underline"
+                    style={{ color: "#dde3f0", textDecoration: "none" }}
+                  >
+                    {o.vehiculoData?.marca} {o.vehiculoData?.modelo}
+                  </Link>
+                  <p
+                    className="text-xs mb-3 leading-relaxed"
+                    style={{ color: "#6b7899" }}
+                  >
                     {o.descripcion}
                   </p>
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <span className="font-black text-gray-950 text-xl">
+                  <div
+                    className="flex justify-between items-center pt-2.5 border-t"
+                    style={{ borderColor: "#2e3650" }}
+                  >
+                    <span
+                      className="font-extrabold text-base"
+                      style={{ color: "#dde3f0", letterSpacing: "-0.3px" }}
+                    >
                       ${new Intl.NumberFormat("es-AR").format(o.costo)}
                     </span>
                     <form action={moverEstado}>
@@ -269,41 +432,115 @@ export default async function Dashboard({
                       />
                       <button
                         type="submit"
-                        className="text-[10px] font-black bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 shadow-md transition-all uppercase"
+                        className="text-xs font-bold px-3 py-1.5 rounded-md transition-all uppercase"
+                        style={{
+                          background: "rgba(79,142,247,0.12)",
+                          color: "#4f8ef7",
+                          border: "1px solid rgba(79,142,247,0.22)",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.3px",
+                        }}
                       >
-                        SIGUIENTE ➔
+                        Siguiente →
                       </button>
                     </form>
                   </div>
                 </div>
               ))}
+              {pendientes.length === 0 && (
+                <p
+                  className="text-center text-xs py-6"
+                  style={{ color: "#6b7899" }}
+                >
+                  Sin órdenes pendientes
+                </p>
+              )}
             </div>
           </div>
 
           {/* EN CURSO */}
-          <div className="bg-orange-100/50 p-4 rounded-3xl border border-orange-200">
-            <h3 className="text-[10px] font-black text-orange-600 uppercase mb-4 tracking-widest text-center">
-              2. En Proceso de Taller
-            </h3>
-            <div className="space-y-4">
+          <div
+            className="rounded-xl border p-4"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="flex items-center gap-2 mb-3 pb-3 border-b"
+              style={{ borderColor: "#2e3650" }}
+            >
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase"
+                style={{
+                  background: "rgba(251,191,36,0.08)",
+                  color: "#fbbf24",
+                  border: "1px solid rgba(251,191,36,0.2)",
+                  letterSpacing: "1px",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  style={{
+                    background: "#fbbf24",
+                    boxShadow: "0 0 6px #fbbf24",
+                  }}
+                />
+                En Proceso
+              </span>
+              <span
+                className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: "#2a3145", color: "#6b7899" }}
+              >
+                {enCurso.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
               {enCurso.map((o) => (
                 <div
                   key={o.id}
-                  className="bg-white p-5 rounded-2xl shadow-md border-b-8 border-orange-500"
+                  className="rounded-xl p-4 transition-all hover:-translate-y-0.5"
+                  style={{
+                    background: "#202637",
+                    border: "1px solid #2e3650",
+                    borderLeftColor: "#fbbf24",
+                    borderLeftWidth: "3px",
+                  }}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-mono text-[10px] bg-orange-600 text-white px-3 py-1 rounded-full font-bold">
-                      {o.vehiculos?.patente}
+                  <div className="flex justify-between items-center mb-2">
+                    <span
+                      className="font-mono text-xs font-bold px-2.5 py-1 rounded"
+                      style={{
+                        background: "rgba(251,191,36,0.1)",
+                        color: "#fbbf24",
+                        border: "1px solid rgba(251,191,36,0.25)",
+                        letterSpacing: "1.5px",
+                      }}
+                    >
+                      {o.vehiculoData?.patente}
                     </span>
                   </div>
-                  <h4 className="font-black text-gray-950 text-lg leading-tight">
-                    {o.vehiculos?.marca} {o.vehiculos?.modelo}
-                  </h4>
-                  <p className="text-xs text-orange-600 font-black mt-2 mb-4 italic uppercase">
-                    🔧 Trabajando en el vehículo
+                  <Link
+                    href={`/ordenes/${o.id}`}
+                    className="font-bold text-sm mb-1 block hover:underline"
+                    style={{ color: "#dde3f0", textDecoration: "none" }}
+                  >
+                    {o.vehiculoData?.marca} {o.vehiculoData?.modelo}
+                  </Link>
+                  <p
+                    className="text-xs font-semibold mb-3 uppercase"
+                    style={{
+                      color: "rgba(251,191,36,0.6)",
+                      letterSpacing: "0.3px",
+                    }}
+                  >
+                    ⚙ Trabajando en el vehículo
                   </p>
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <span className="font-black text-gray-950 text-xl">
+                  <div
+                    className="flex justify-between items-center pt-2.5 border-t"
+                    style={{ borderColor: "#2e3650" }}
+                  >
+                    <span
+                      className="font-extrabold text-base"
+                      style={{ color: "#dde3f0", letterSpacing: "-0.3px" }}
+                    >
                       ${new Intl.NumberFormat("es-AR").format(o.costo)}
                     </span>
                     <form action={moverEstado}>
@@ -315,41 +552,135 @@ export default async function Dashboard({
                       />
                       <button
                         type="submit"
-                        className="text-[10px] font-black bg-orange-600 text-white px-5 py-2.5 rounded-xl hover:bg-orange-700 shadow-md transition-all uppercase"
+                        className="text-xs font-bold px-3 py-1.5 rounded-md transition-all uppercase"
+                        style={{
+                          background: "rgba(251,191,36,0.1)",
+                          color: "#fbbf24",
+                          border: "1px solid rgba(251,191,36,0.22)",
+                          fontFamily: "inherit",
+                          letterSpacing: "0.3px",
+                        }}
                       >
-                        SIGUIENTE ➔
+                        Siguiente →
                       </button>
                     </form>
                   </div>
                 </div>
               ))}
+              {enCurso.length === 0 && (
+                <p
+                  className="text-center text-xs py-6"
+                  style={{ color: "#6b7899" }}
+                >
+                  Sin vehículos en proceso
+                </p>
+              )}
             </div>
           </div>
 
           {/* FINALIZADO */}
-          <div className="bg-green-100/50 p-4 rounded-3xl border border-green-200">
-            <h3 className="text-[10px] font-black text-green-700 uppercase mb-4 tracking-widest text-center">
-              3. Historial de Cobros
-            </h3>
-            <div className="space-y-3">
+          <div
+            className="rounded-xl border p-4"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="flex items-center gap-2 mb-3 pb-3 border-b"
+              style={{ borderColor: "#2e3650" }}
+            >
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase"
+                style={{
+                  background: "rgba(52,211,153,0.08)",
+                  color: "#34d399",
+                  border: "1px solid rgba(52,211,153,0.2)",
+                  letterSpacing: "1px",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  style={{
+                    background: "#34d399",
+                    boxShadow: "0 0 6px #34d399",
+                  }}
+                />
+                Completado
+              </span>
+              <span
+                className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: "#2a3145", color: "#6b7899" }}
+              >
+                {historial.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
               {historial.map((o) => (
                 <div
                   key={o.id}
-                  className="bg-white p-4 rounded-xl shadow-sm border border-green-200"
+                  className="rounded-xl p-4 transition-all hover:-translate-y-0.5"
+                  style={{
+                    background: "#202637",
+                    border: "1px solid #2e3650",
+                    borderLeftColor: "#34d399",
+                    borderLeftWidth: "3px",
+                    opacity: 0.85,
+                  }}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <h4 className="font-black text-gray-950 text-sm">
-                      {o.vehiculos?.marca} {o.vehiculos?.modelo}
-                    </h4>
-                    <span className="font-black text-green-700 text-base">
-                      ${new Intl.NumberFormat("es-AR").format(o.costo)}
+                  <div className="flex justify-between items-center mb-2">
+                    <span
+                      className="font-mono text-xs font-bold px-2.5 py-1 rounded"
+                      style={{
+                        background: "rgba(52,211,153,0.08)",
+                        color: "#34d399",
+                        border: "1px solid rgba(52,211,153,0.2)",
+                        letterSpacing: "1.5px",
+                      }}
+                    >
+                      {o.vehiculoData?.patente}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500 font-mono font-bold uppercase tracking-widest">
-                    {o.vehiculos?.patente}
+                  <Link
+                    href={`/ordenes/${o.id}`}
+                    className="font-bold text-sm mb-1 block hover:underline"
+                    style={{ color: "#dde3f0", textDecoration: "none" }}
+                  >
+                    {o.vehiculoData?.marca} {o.vehiculoData?.modelo}
+                  </Link>
+                  <p
+                    className="text-xs mb-3 leading-relaxed"
+                    style={{ color: "#6b7899" }}
+                  >
+                    {o.descripcion}
                   </p>
+                  <div
+                    className="flex justify-between items-center pt-2.5 border-t"
+                    style={{ borderColor: "#2e3650" }}
+                  >
+                    <span
+                      className="font-extrabold text-base"
+                      style={{ color: "#34d399", letterSpacing: "-0.3px" }}
+                    >
+                      ${new Intl.NumberFormat("es-AR").format(o.costo)}
+                    </span>
+                    <span
+                      className="text-xs font-semibold px-2.5 py-1 rounded"
+                      style={{
+                        background: "rgba(52,211,153,0.08)",
+                        color: "#34d399",
+                      }}
+                    >
+                      ✓ Cobrado
+                    </span>
+                  </div>
                 </div>
               ))}
+              {historial.length === 0 && (
+                <p
+                  className="text-center text-xs py-6"
+                  style={{ color: "#6b7899" }}
+                >
+                  Sin órdenes finalizadas
+                </p>
+              )}
             </div>
           </div>
         </div>

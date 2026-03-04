@@ -9,23 +9,6 @@ export default async function ClientesPage() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  const TrashIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={1.5}
-      stroke="currentColor"
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-      />
-    </svg>
-  );
-
   async function agregarCliente(formData: FormData) {
     "use server";
     const nombre = formData.get("nombre") as string;
@@ -52,72 +35,164 @@ export default async function ClientesPage() {
   }
 
   return (
-    <div className="p-8 font-sans bg-gray-50/50 min-h-full">
+    <div
+      className="p-8"
+      style={{
+        background: "#1a1f2e",
+        minHeight: "100vh",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
       <div className="mx-auto max-w-5xl">
-        <div className="mb-8 p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+        {/* HEADER */}
+        <div
+          className="flex justify-between items-center mb-6 pb-5 border-b"
+          style={{ borderColor: "#2e3650" }}
+        >
           <div>
-            <h2 className="text-3xl font-extrabold text-gray-950 tracking-tight">
-              Directorio de Clientes
-            </h2>
-            <p className="text-gray-500 mt-1">
-              Alta y gestión de cartera de clientes.
+            <h1
+              className="text-2xl font-extrabold tracking-tight"
+              style={{ color: "#ffffff", letterSpacing: "-0.3px" }}
+            >
+              Base de Clientes
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "#6b7899" }}>
+              Registro y administración de titulares
             </p>
           </div>
-          <span className="text-5xl">👥</span>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+            style={{
+              background: "rgba(79,142,247,0.12)",
+              color: "#4f8ef7",
+              border: "1px solid rgba(79,142,247,0.2)",
+            }}
+          >
+            ◉
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 rounded-xl bg-white p-6 shadow-sm border border-gray-200 h-fit">
-            <h2 className="mb-4 text-lg font-bold text-gray-800 border-b pb-2">
+        <div className="grid grid-cols-3 gap-6">
+          {/* FORM */}
+          <div
+            className="col-span-1 rounded-xl border p-5 h-fit"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <p
+              className="text-xs font-bold uppercase mb-4"
+              style={{ color: "#6b7899", letterSpacing: "1.5px" }}
+            >
               Nuevo Cliente
-            </h2>
-            <form action={agregarCliente} className="space-y-3">
+            </p>
+            <form action={agregarCliente} className="flex flex-col gap-3">
               <input
                 type="text"
                 name="nombre"
                 required
                 placeholder="Nombre completo"
-                className="w-full rounded-md border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 text-gray-950 placeholder:text-gray-500 font-medium"
+                className="rounded-lg text-sm outline-none w-full"
+                style={{
+                  background: "#202637",
+                  border: "1px solid #374060",
+                  padding: "9px 13px",
+                  color: "#dde3f0",
+                  fontFamily: "inherit",
+                }}
               />
               <input
                 type="text"
                 name="telefono"
                 placeholder="Teléfono"
-                className="w-full rounded-md border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 text-gray-950 placeholder:text-gray-500 font-medium"
+                className="rounded-lg text-sm outline-none w-full"
+                style={{
+                  background: "#202637",
+                  border: "1px solid #374060",
+                  padding: "9px 13px",
+                  color: "#dde3f0",
+                  fontFamily: "inherit",
+                }}
               />
               <input
                 type="email"
                 name="email"
                 placeholder="Email"
-                className="w-full rounded-md border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 text-gray-950 placeholder:text-gray-500 font-medium"
+                className="rounded-lg text-sm outline-none w-full"
+                style={{
+                  background: "#202637",
+                  border: "1px solid #374060",
+                  padding: "9px 13px",
+                  color: "#dde3f0",
+                  fontFamily: "inherit",
+                }}
               />
               <button
                 type="submit"
-                className="w-full rounded-md bg-blue-600 px-4 py-2.5 font-bold text-white hover:bg-blue-700 transition-colors"
+                className="w-full rounded-lg text-sm font-bold text-white transition-all mt-1"
+                style={{
+                  background: "#4f8ef7",
+                  padding: "9px 13px",
+                  fontFamily: "inherit",
+                }}
               >
-                Guardar
+                + Guardar Cliente
               </button>
             </form>
           </div>
 
-          <div className="lg:col-span-2 rounded-xl bg-white p-6 shadow-sm border border-gray-200">
-            <h2 className="mb-4 text-lg font-bold text-gray-800 border-b pb-2">
-              Listado Activo
-            </h2>
+          {/* LISTA */}
+          <div
+            className="col-span-2 rounded-xl border p-5"
+            style={{ background: "#252b3b", borderColor: "#2e3650" }}
+          >
+            <div
+              className="flex items-center justify-between mb-4 pb-3 border-b"
+              style={{ borderColor: "#2e3650" }}
+            >
+              <p
+                className="text-xs font-bold uppercase"
+                style={{ color: "#6b7899", letterSpacing: "1.5px" }}
+              >
+                Listado Activo
+              </p>
+              <span
+                className="px-2.5 py-1 rounded-full text-xs font-bold"
+                style={{ background: "#2a3145", color: "#6b7899" }}
+              >
+                {clientes?.length || 0} registros
+              </span>
+            </div>
+
             {clientes && clientes.length > 0 ? (
-              <ul className="divide-y divide-gray-100">
+              <ul className="flex flex-col gap-2">
                 {clientes.map((c) => (
                   <li
                     key={c.id}
-                    className="py-4 flex justify-between items-center group"
+                    className="flex justify-between items-center p-4 rounded-xl border group transition-all hover:-translate-y-0.5"
+                    style={{ background: "#202637", borderColor: "#2e3650" }}
                   >
-                    <div>
-                      <p className="font-bold text-gray-950 text-lg">
-                        {c.nombre}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {c.telefono} • {c.email}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                        style={{
+                          background: "rgba(79,142,247,0.12)",
+                          color: "#4f8ef7",
+                        }}
+                      >
+                        {c.nombre?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p
+                          className="font-bold text-sm"
+                          style={{ color: "#dde3f0" }}
+                        >
+                          {c.nombre}
+                        </p>
+                        <p className="text-xs" style={{ color: "#6b7899" }}>
+                          {c.telefono && <span>{c.telefono}</span>}
+                          {c.telefono && c.email && <span> · </span>}
+                          {c.email && <span>{c.email}</span>}
+                        </p>
+                      </div>
                     </div>
                     <form
                       action={eliminarCliente}
@@ -126,16 +201,22 @@ export default async function ClientesPage() {
                       <input type="hidden" name="id" value={c.id} />
                       <DeleteButton
                         mensaje={`¿Eliminar a ${c.nombre}?`}
-                        className="p-2 text-red-400 hover:text-red-600"
+                        className="text-xs px-2 py-1.5 rounded-lg transition-all"
+                        style={{ color: "#6b7899", background: "transparent" }}
                       >
-                        <TrashIcon />
+                        ✕
                       </DeleteButton>
                     </form>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-500 italic">No hay clientes todavía.</p>
+              <p
+                className="text-center text-xs py-10"
+                style={{ color: "#6b7899" }}
+              >
+                No hay clientes registrados todavía.
+              </p>
             )}
           </div>
         </div>
